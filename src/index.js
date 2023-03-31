@@ -437,12 +437,13 @@ class Bree extends EventEmitter {
           this.workers.delete(name);
 
           this.handleJobCompletion(name);
-          console.log(`worker: delay job ${name} is completed, total number ${this.jobQueue.length}`);
           const itemIndex = this.jobQueue.indexOf(name);
           if (itemIndex > -1) { // only splice array when item is found
             this.jobQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
           }
           this.jobsInQueue = false;
+          console.log(`worker: delay job ${name} is completed, total number ${this.jobQueue.length}`);
+
           this.emit('worker deleted', name);
         }
       });
@@ -495,6 +496,14 @@ class Bree extends EventEmitter {
         this.workers.delete(name);
 
         this.handleJobCompletion(name);
+
+        const itemIndex = this.jobQueue.indexOf(name);
+        if (itemIndex > -1) { // only splice array when item is found
+          this.jobQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
+        }
+        console.log(`worker: delay job ${name} is completed, total number ${this.jobQueue.length}`);
+
+        this.jobsInQueue = false;
 
         this.emit('worker deleted', name);
       });
