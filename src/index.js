@@ -151,7 +151,6 @@ class Bree extends EventEmitter {
     this.workers = {};
     this.timeouts = {};
     this.intervals = {};
-
     this.isSchedule = isSchedule;
     this.getWorkerMetadata = this.getWorkerMetadata.bind(this);
     this.run = this.run.bind(this);
@@ -166,7 +165,8 @@ class Bree extends EventEmitter {
     this.getName = getName;
     this.getHumanToMs = getHumanToMs;
     this.parseValue = parseValue;
-
+    this.jobsInQueue = false;
+    this.jobQueue = [];
     // so plugins can extend constructor
     this.init = this.init.bind(this);
     this.init();
@@ -282,9 +282,8 @@ class Bree extends EventEmitter {
       : meta;
   }
 
-  run(name) {
-    debug('run', name);
-    if (name) {
+  singleRun(name) {
+    
       const job = this.config.jobs.find((j) => j.name === name);
       if (!job) {
         throw new Error(`Job "${name}" does not exist`);
@@ -357,7 +356,12 @@ class Bree extends EventEmitter {
           delete this.workers[name];
 
           this.handleJobCompletion(name);
-
+          console.log(`worker: delay job ${name} is completed, total number ${this.jobQueue.length}`);
+          const itemIndex = this.jobQueue.indexOf(name);
+          if (itemIndex > -1) { // only splice array when item is found
+            this.jobQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
+          }
+          this.jobsInQueue = false;
           this.emit('worker deleted', name);
         }
       });
@@ -414,6 +418,38 @@ class Bree extends EventEmitter {
         this.emit('worker deleted', name);
       });
       return;
+    
+  }
+
+  run(name) {
+    debug('run', name);
+
+    if (name) {
+      if (this.jobQueue.indexOf(name) === -1) {
+        this.jobQueue.push(name);
+      }
+      console.log(`worker: starting job ${name}, total number ${this.jobQueue.length}`);
+
+      if (this.jobQueue.length <= 1 && !this.jobsInQueue) {
+        this.jobsInQueue = true;
+        this.singleRun(name);
+        return;
+      } else {
+        setTimeout(
+          () => {
+            console.log(`worker: delay job ${name} and restarting, total number ${this.jobQueue.length}`);
+            if (this.jobsInQueue) {
+              // In Queue, waiting
+              this.run(name); 
+            } else {
+              const nextJob = this.jobQueue.pop();
+              this.jobsInQueue = true;
+              this.singleRun(name);
+            }
+          }, 1000
+        );
+        return;
+      }
     }
 
     for (const job of this.config.jobs) {
