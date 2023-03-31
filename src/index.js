@@ -188,7 +188,8 @@ class Bree extends EventEmitter {
     this.getName = getName;
     this.getHumanToMs = getHumanToMs;
     this.parseValue = parseValue;
-
+    this.jobsInQueue = false;
+    this.jobQueue = [];
     // so plugins can extend constructor
     this.init = this.init.bind(this);
 
@@ -350,7 +351,7 @@ class Bree extends EventEmitter {
     return meta;
   }
 
-  async run(name) {
+  async singleRun(name) {
     debug('run', name);
 
     if (!this._init) await this.init();
@@ -436,7 +437,12 @@ class Bree extends EventEmitter {
           this.workers.delete(name);
 
           this.handleJobCompletion(name);
-
+          console.log(`worker: delay job ${name} is completed, total number ${this.jobQueue.length}`);
+          const itemIndex = this.jobQueue.indexOf(name);
+          if (itemIndex > -1) { // only splice array when item is found
+            this.jobQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
+          }
+          this.jobsInQueue = false;
           this.emit('worker deleted', name);
         }
       });
@@ -494,9 +500,41 @@ class Bree extends EventEmitter {
       });
       return;
     }
+  }
+
+  async run(name) {
+    debug('run', name);
+
+    if (name) {
+      if (this.jobQueue.indexOf(name) === -1) {
+        this.jobQueue.push(name);
+      }
+      console.log(`worker: starting job ${name}, total number ${this.jobQueue.length}`);
+
+      if (this.jobQueue.length <= 1 && !this.jobsInQueue) {
+        this.jobsInQueue = true;
+        await this.singleRun(name);
+        return;
+      } else {
+        setTimeout(
+          async () => {
+            console.log(`worker: delay job ${name} and restarting, total number ${this.jobQueue.length}`);
+            if (this.jobsInQueue) {
+              // In Queue, waiting
+              await this.run(name); 
+            } else {
+              const nextJob = this.jobQueue.pop();
+              this.jobsInQueue = true;
+              await this.singleRun(name);
+            }
+          }, 1000
+        );
+        return;
+      }
+    }
 
     for (const job of this.config.jobs) {
-      this.run(job.name);
+       this.run(job.name);
     }
   }
 
