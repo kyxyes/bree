@@ -442,7 +442,7 @@ class Bree extends EventEmitter {
             this.jobQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
           }
           this.jobsInQueue = false;
-          console.log(`worker: delay job ${name} is completed, total number ${this.jobQueue.length}`);
+          console.log(`worker: queued job ${name} is completed, total number ${this.jobQueue.length}`);
 
           this.emit('worker deleted', name);
         }
@@ -501,7 +501,7 @@ class Bree extends EventEmitter {
         if (itemIndex > -1) { // only splice array when item is found
           this.jobQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
         }
-        console.log(`worker: delay job ${name} is completed, total number ${this.jobQueue.length}`);
+        console.log(`worker: queued job ${name} is completed, total queued number ${this.jobQueue.length}`);
 
         this.jobsInQueue = false;
 
@@ -518,7 +518,7 @@ class Bree extends EventEmitter {
       if (this.jobQueue.indexOf(name) === -1) {
         this.jobQueue.push(name);
       }
-      console.log(`worker: starting job ${name}, total number ${this.jobQueue.length}`);
+      console.log(`worker: starting job ${name}, total queued number ${this.jobQueue.length}`);
 
       if (this.jobQueue.length <= 1 && !this.jobsInQueue) {
         this.jobsInQueue = true;
@@ -527,7 +527,7 @@ class Bree extends EventEmitter {
       } else {
         setTimeout(
           async () => {
-            console.log(`worker: delay job ${name} and restarting, total number ${this.jobQueue.length}`);
+            console.log(`worker: queuing job ${name} and restarting, total queued number ${this.jobQueue.length}`);
             if (this.jobsInQueue) {
               // In Queue, waiting
               await this.run(name); 
