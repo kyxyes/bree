@@ -188,8 +188,8 @@ class Bree extends EventEmitter {
     this.getName = getName;
     this.getHumanToMs = getHumanToMs;
     this.parseValue = parseValue;
-    this.jobsInQueue = false;
-    this.jobQueue = [];
+    this.pendingJobsQueue = [];
+    this.runningJobsQueue = [];
     // so plugins can extend constructor
     this.init = this.init.bind(this);
 
@@ -437,12 +437,11 @@ class Bree extends EventEmitter {
           this.workers.delete(name);
 
           this.handleJobCompletion(name);
-          const itemIndex = this.jobQueue.indexOf(name);
+          const itemIndex = this.runningJobsQueue.indexOf(name);
           if (itemIndex > -1) { // only splice array when item is found
-            this.jobQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
+            this.runningJobsQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
           }
-          this.jobsInQueue = false;
-          console.log(`worker: queued job ${name} is completed, total queued number ${this.jobQueue.length}`);
+          console.log(`worker: queued job ${name} is completed, total queued number ${this.pendingJobsQueue.length}`);
 
           this.emit('worker deleted', name);
         }
@@ -497,13 +496,11 @@ class Bree extends EventEmitter {
 
         this.handleJobCompletion(name);
 
-        const itemIndex = this.jobQueue.indexOf(name);
+        const itemIndex = this.runningJobsQueue.indexOf(name);
         if (itemIndex > -1) { // only splice array when item is found
-          this.jobQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
+          this.runningJobsQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
         }
-        console.log(`worker: queued job ${name} is completed, total queued number ${this.jobQueue.length}`);
-
-        this.jobsInQueue = false;
+        console.log(`worker: queued job ${name} is completed, total queued number ${this.pendingJobsQueue.length}`);
 
         this.emit('worker deleted', name);
       });
@@ -515,27 +512,23 @@ class Bree extends EventEmitter {
     debug('run', name);
 
     if (name) {
-      if (this.jobQueue.indexOf(name) === -1) {
-        this.jobQueue.push(name);
-      }
-      console.log(`worker: starting job ${name}, total queued number ${this.jobQueue.length}`);
-
-      if (this.jobQueue.length <= 1 && !this.jobsInQueue) {
-        this.jobsInQueue = true;
+      if (this.runningJobsQueue.length < this.config.concurrentJobNumber) {
+        const itemIndex = this.pendingJobsQueue.indexOf(name);
+        if (itemIndex > -1) { 
+          this.pendingJobsQueue.splice(itemIndex, 1); 
+        }
+        this.runningJobsQueue.push(name);
+        console.log(`worker: running job ${name}, total running number ${this.runningJobsQueue.length}`);
         await this.singleRun(name);
         return;
       } else {
+        if (this.pendingJobsQueue.indexOf(name) === -1) {
+          this.pendingJobsQueue.push(name);
+        }
+        console.log(`worker: queuing job ${name} and restarting, total queued number ${this.pendingJobsQueue.length}`);
         setTimeout(
           async () => {
-            console.log(`worker: queuing job ${name} and restarting, total queued number ${this.jobQueue.length}`);
-            if (this.jobsInQueue) {
-              // In Queue, waiting
-              await this.run(name); 
-            } else {
-              const nextJob = this.jobQueue.pop();
-              this.jobsInQueue = true;
-              await this.singleRun(name);
-            }
+            await this.run(name); 
           }, 1000
         );
         return;
