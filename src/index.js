@@ -442,7 +442,7 @@ class Bree extends EventEmitter {
             this.jobQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
           }
           this.jobsInQueue = false;
-          console.log(`worker: queued job ${name} is completed, total number ${this.jobQueue.length}`);
+          console.log(`worker: queued job ${name} is completed, total queued number ${this.jobQueue.length}`);
 
           this.emit('worker deleted', name);
         }
