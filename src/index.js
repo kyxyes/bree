@@ -188,7 +188,6 @@ class Bree extends EventEmitter {
     this.getName = getName;
     this.getHumanToMs = getHumanToMs;
     this.parseValue = parseValue;
-    this.jobsInQueue = false;
     this.jobQueue = [];
     // so plugins can extend constructor
     this.init = this.init.bind(this);
@@ -441,7 +440,6 @@ class Bree extends EventEmitter {
           if (itemIndex > -1) { // only splice array when item is found
             this.jobQueue.splice(itemIndex, 1); // 2nd parameter means remove one item only
           }
-          this.jobsInQueue = false;
           console.log(`worker: queued job ${name} is completed, total queued number ${this.jobQueue.length}`);
 
           this.emit('worker deleted', name);
@@ -503,8 +501,6 @@ class Bree extends EventEmitter {
         }
         console.log(`worker: queued job ${name} is completed, total queued number ${this.jobQueue.length}`);
 
-        this.jobsInQueue = false;
-
         this.emit('worker deleted', name);
       });
       return;
@@ -520,22 +516,14 @@ class Bree extends EventEmitter {
       }
       console.log(`worker: starting job ${name}, total queued number ${this.jobQueue.length}`);
 
-      if (this.jobQueue.length <= 1 && !this.jobsInQueue) {
-        this.jobsInQueue = true;
+      if (this.jobQueue.length <= this.config.concurrentJobNumber) {
         await this.singleRun(name);
         return;
       } else {
         setTimeout(
           async () => {
             console.log(`worker: queuing job ${name} and restarting, total queued number ${this.jobQueue.length}`);
-            if (this.jobsInQueue) {
-              // In Queue, waiting
-              await this.run(name); 
-            } else {
-              const nextJob = this.jobQueue.pop();
-              this.jobsInQueue = true;
-              await this.singleRun(name);
-            }
+            await this.run(name); 
           }, 1000
         );
         return;
